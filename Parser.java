@@ -39,7 +39,7 @@ public class Parser {
           statement();
     }
 
-    private void declarations() {
+    private void declarations() {//if this is called, could have error in block
         mustbe(TK.VAR);
         while( is(TK.ID) ) {
             scan();
@@ -48,10 +48,16 @@ public class Parser {
     }
     
     private void statement() {
-        scan();
+        scan();//get next token, while loop in block checked for correct 
+               //first(stmt)
+               //this scan is causing an issue with print since it is 
+               //skipping over a the print terminal and going straight to 
+               //the ID being printed thus causing the else cause to be 
+               //called and exit the program early. 
+        System.out.println("In stmt, token =" + tok);
         if(is(TK.ASSIGN))
         {
-          System.out.println("In statement tok =" + tok);
+          //System.out.println("In statement tok =" + tok);
           assign();
         }
         else if(is(TK.PRINT))
@@ -63,15 +69,21 @@ public class Parser {
           pif();
         }
         else if(is(TK.DO))
+        {
           pdo();
+        }
         else if(is(TK.FA))
+        {
           pfa();
+        }
         else
+        {
           System.exit(1);
+        }
     }
 
     private void assign() {
-        System.out.println("Token =" + tok);
+        //System.out.println("Token =" + tok);
         expr();
     }
 
@@ -82,6 +94,7 @@ public class Parser {
 
     private void pif() {
         mustbe(TK.IF);
+        System.out.println("In pif");
         guarded_commands();
         mustbe(TK.FI);
     }
@@ -166,18 +179,21 @@ public class Parser {
           scan();
         }
         else if(is(TK.ID))
+        {
           scan();
+        }
         else if(is(TK.NUM))
         {
           scan();
-          System.out.println("Factor goes to num");
+          //System.out.println("Factor goes to num");
         }
         else
         {
           System.err.println("Token does not meet grammar req. for factor");
           System.exit(1);
         }
-          
+        
+        System.out.println("Returned Token from factor =" + tok); 
     }
      
     // you'll need to add a bunch of methods here
