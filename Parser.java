@@ -112,18 +112,27 @@ public class Parser {
     }
 
     private void guarded_commands() {
+        guarded_command();//assuming a new token is created
 
+        while(is(TK.BOX));
+          guarded_command();
+
+        if(is(TK.ELSE))
+          commands();        
     }
  
     private void guarded_command() {
- 
+        expr();
+        commands();//for the moment assuming commands sets a new token
     }
 
     private void commands() {
-
+        mustbe(TK.ARROW);
+        scan();
+        block();//will this return a new token or must scan be called again?
     }
 
-    private void expr() {
+    private void expr() { //expr will scan next token after successful run
         simple();
 
         if(relop.contains(tok))
