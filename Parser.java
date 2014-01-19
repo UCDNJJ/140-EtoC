@@ -51,8 +51,8 @@ public class Parser {
         scan();//get next token, while loop in block checked for correct 
                //first(stmt)
                //this scan is causing an issue with print since it is 
-               //skipping over a the print terminal and going straight to 
-               //the ID being printed thus causing the else cause to be 
+               //skipping over the print terminal and going straight to 
+               //the ID being printed thus causing the else case to be 
                //called and exit the program early. 
         System.out.println("In stmt, token =" + tok);
         if(is(TK.ASSIGN))
