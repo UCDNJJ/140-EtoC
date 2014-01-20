@@ -1,15 +1,12 @@
 /* *** This file is given as part of the programming assignment. *** */
-import java.util.*; 
+
+import java.util.*;
 
 public class Parser {
-
 
     // tok is global to all these parsing methods;
     // scan just calls the scanner's scan method and saves the result in tok.
     private Token tok; // the current token
-    List<String> relop = Arrays.asList("=","/=","<",">","<=",">=");
-    List<String> addop = Arrays.asList("+","-");
-    List<String> multop = Arrays.asList("*","/");
     private void scan() {
         tok = scanner.scan();
     }
@@ -28,18 +25,15 @@ public class Parser {
     }
 
     private void block() {
-        // you'll need to add some code here
         if(is(TK.VAR))
+        {
           declarations();
-        //System.out.println("In block tok =" + tok);
-        //scan();
-        //System.out.println("2nd block tok =" + tok);
-        while(is(TK.ID) || is(TK.PRINT) || is(TK.IF) ||
-              is(TK.DO) || is(TK.FA))
-          statement();
+        }
+        
+        statement_list();
     }
 
-    private void declarations() {//if this is called, could have error in block
+    private void declarations() {
         mustbe(TK.VAR);
         while( is(TK.ID) ) {
             scan();
@@ -47,156 +41,167 @@ public class Parser {
         mustbe(TK.RAV);
     }
     
-    private void statement() {
-        scan();//get next token, while loop in block checked for correct 
-               //first(stmt)
-               //this scan is causing an issue with print since it is 
-               //skipping over the print terminal and going straight to 
-               //the ID being printed thus causing the else case to be 
-               //called and exit the program early. 
-        System.out.println("In stmt, token =" + tok);
-        if(is(TK.ASSIGN))
+    private void statement_list() {
+        
+        while(is(TK.ID) || is(TK.PRINT) || is(TK.IF) || is(TK.DO) || is(TK.FA))
         {
-          //System.out.println("In statement tok =" + tok);
-          assign();
+            //System.out.println("In while loop for statement");
+            statement();
+        }
+        
+    }
+
+    private void statement() {
+        
+        if(is(TK.ID))
+        {
+            assign();
         }
         else if(is(TK.PRINT))
         {
-          print();
+            print();
         }
         else if(is(TK.IF))
         {
-          pif();
+            x_if();
         }
         else if(is(TK.DO))
         {
-          pdo();
-        }
-        else if(is(TK.FA))
-        {
-          pfa();
+            x_do();
         }
         else
         {
-          System.exit(1);
+            x_fa();
         }
     }
-
+    
     private void assign() {
-        //System.out.println("Token =" + tok);
+        mustbe(TK.ID);
+        //scan();//retrieve ':='
+        mustbe(TK.ASSIGN);
         expr();
     }
-
+    
     private void print() {
         mustbe(TK.PRINT);
         expr();
     }
-
-    private void pif() {
+    
+    private void x_if() {
         mustbe(TK.IF);
-        System.out.println("In pif");
         guarded_commands();
+        //scan();//retrieve 'FI' to end the IF statement
         mustbe(TK.FI);
     }
- 
-    private void pdo() {
+    
+    private void x_do() {
         mustbe(TK.DO);
         guarded_commands();
+        //scan();//retieve 'OD' to end DO statement
         mustbe(TK.OD);
     }
-
-    private void pfa() {
+    
+    private void x_fa() {
         mustbe(TK.FA);
-        scan();
+
         mustbe(TK.ID);
-        scan();
+
         mustbe(TK.ASSIGN);
         expr();
+
         mustbe(TK.TO);
         expr();
+
         if(is(TK.ST))
         {
-          expr();
+            expr();
         }
         else
-          commands();
-
-        mustbe(TK.AF);
+        {
+            commands();//may need to scan after this
+        }
+        //scan();//retrieve 'fa' to end statement
+        mustbe(TK.FA);
     }
-
-    private void guarded_commands() {
-        guarded_command();//assuming a new token is created
-
-        while(is(TK.BOX));
-          guarded_command();
-
-        if(is(TK.ELSE))
-          commands();        
-    }
- 
-    private void guarded_command() {
-        expr();
-        commands();//for the moment assuming commands sets a new token
-    }
-
-    private void commands() {
-        mustbe(TK.ARROW);
-        scan();
-        block();//will this return a new token or must scan be called again?
-    }
-
-    private void expr() { //expr will scan next token after successful run
+    
+    private void expr() { //returns a new tok when complete, don't scan after
         simple();
-
-        if(relop.contains(tok))
-          simple();
-     
+        System.out.println("In expr, tok = " + tok);
+        if(is(TK.EQ) || is(TK.LT) || is(TK.GT) || is(TK.NE) 
+                || is(TK.LE) || is(TK.GE)) 
+        {
+            scan();
+            simple();
+        }
     }
-
+    
     private void simple() {
         term();
-       
-        while(addop.contains(tok))
-          term();
+        System.out.println("In simple, tok = " + tok);
+        while(is(TK.PLUS) || is(TK.MINUS))
+        {
+            scan();
+            term();
+        }
     }
-
+    
     private void term() {
         factor();
-  
-        while(multop.contains(tok))
-          factor();
+        System.out.println("In term, tok = " + tok);
+        while(is(TK.TIMES) || is(TK.DIVIDE))
+        {
+            scan();
+            factor();
+        }
     }
-
+    
     private void factor() {
-        scan();
-        System.out.println("Token at factor =" + tok);
+        System.out.println("Token at start of factor = " + tok);
+        
         if(is(TK.LPAREN))
         {
-          scan();
-          expr();
-          scan();
-          mustbe(TK.RPAREN);
-          scan();
+            mustbe(TK.LPAREN);
+            expr();
+            mustbe(TK.RPAREN);
         }
         else if(is(TK.ID))
         {
-          scan();
+            mustbe(TK.ID);
         }
         else if(is(TK.NUM))
         {
-          scan();
-          //System.out.println("Factor goes to num");
+            mustbe(TK.NUM);
         }
         else
         {
-          System.err.println("Token does not meet grammar req. for factor");
-          System.exit(1);
+            System.exit(1);
+        }
+    }
+    
+    private void guarded_commands() {
+        guarded_command();
+        
+        while(is(TK.BOX))
+        {
+            guarded_command();
         }
         
-        System.out.println("Returned Token from factor =" + tok); 
+        if(is(TK.ELSE))
+        {
+            commands();
+        }             
+        
     }
-     
-    // you'll need to add a bunch of methods here
+    
+    private void guarded_command() {
+        expr();
+        commands();
+    }
+    
+    private void commands() {
+        mustbe(TK.ARROW);
+        block();//will this return a new token? it should.
+    }
 
     // is current token what we want?
     private boolean is(TK tk) {
