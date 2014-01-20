@@ -45,7 +45,6 @@ public class Parser {
         
         while(is(TK.ID) || is(TK.PRINT) || is(TK.IF) || is(TK.DO) || is(TK.FA))
         {
-            //System.out.println("In while loop for statement");
             statement();
         }
         
@@ -77,7 +76,6 @@ public class Parser {
     
     private void assign() {
         mustbe(TK.ID);
-        //scan();//retrieve ':='
         mustbe(TK.ASSIGN);
         expr();
     }
@@ -90,43 +88,40 @@ public class Parser {
     private void x_if() {
         mustbe(TK.IF);
         guarded_commands();
-        //scan();//retrieve 'FI' to end the IF statement
         mustbe(TK.FI);
     }
     
     private void x_do() {
         mustbe(TK.DO);
         guarded_commands();
-        //scan();//retieve 'OD' to end DO statement
         mustbe(TK.OD);
     }
     
     private void x_fa() {
         mustbe(TK.FA);
-
         mustbe(TK.ID);
-
         mustbe(TK.ASSIGN);
+        
         expr();
-
+        
         mustbe(TK.TO);
+        
         expr();
 
         if(is(TK.ST))
         {
+            mustbe(TK.ST);
             expr();
         }
-        else
-        {
-            commands();//may need to scan after this
-        }
-        //scan();//retrieve 'fa' to end statement
-        mustbe(TK.FA);
+        
+        commands();
+
+        mustbe(TK.AF);
     }
     
     private void expr() { //returns a new tok when complete, don't scan after
         simple();
-        System.out.println("In expr, tok = " + tok);
+        
         if(is(TK.EQ) || is(TK.LT) || is(TK.GT) || is(TK.NE) 
                 || is(TK.LE) || is(TK.GE)) 
         {
@@ -137,7 +132,7 @@ public class Parser {
     
     private void simple() {
         term();
-        System.out.println("In simple, tok = " + tok);
+
         while(is(TK.PLUS) || is(TK.MINUS))
         {
             scan();
@@ -147,7 +142,7 @@ public class Parser {
     
     private void term() {
         factor();
-        System.out.println("In term, tok = " + tok);
+
         while(is(TK.TIMES) || is(TK.DIVIDE))
         {
             scan();
@@ -156,7 +151,6 @@ public class Parser {
     }
     
     private void factor() {
-        System.out.println("Token at start of factor = " + tok);
         
         if(is(TK.LPAREN))
         {
@@ -174,7 +168,7 @@ public class Parser {
         }
         else
         {
-            System.exit(1);
+            parse_error("factor");
         }
     }
     
@@ -183,11 +177,13 @@ public class Parser {
         
         while(is(TK.BOX))
         {
+            mustbe(TK.BOX);
             guarded_command();
         }
         
         if(is(TK.ELSE))
         {
+            mustbe(TK.ELSE);
             commands();
         }             
         
@@ -200,7 +196,7 @@ public class Parser {
     
     private void commands() {
         mustbe(TK.ARROW);
-        block();//will this return a new token? it should.
+        block();
     }
 
     // is current token what we want?
