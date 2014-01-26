@@ -83,8 +83,6 @@ public class Parser {
         }
         
     }
-    //Each case in statement will create a new block in stack, update nesting
-    //depth upon entering or exiting.
     private void statement() {
         
         if(is(TK.ID))
