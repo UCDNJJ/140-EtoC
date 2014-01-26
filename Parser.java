@@ -10,6 +10,18 @@ public class Parser {
     private void scan() {
         tok = scanner.scan();
     }
+    
+    //Will hold variables and info of each block in symbol table.
+    //private Vector<Vars> variables = new Vector<Vars>();
+    HashMap<String, Vars> variables = new HashMap<String, Vars>();
+    //Symbol table data structure
+    Stack<Vars> symTable = new Stack<Vars>();
+    //Variable to keep track of nesting depth
+    private int depth;
+    //data structure for holding each block data
+    HashMap<String,Vars> list;
+    //variable to hold previously scanned ID
+    private Token prev;
 
     private Scan scanner;
     Parser(Scan scanner) {
@@ -24,7 +36,8 @@ public class Parser {
         block();
     }
 
-    private void block() {
+    private void block() { 
+        list = new HashMap<String,Vars>();
         if(is(TK.VAR))
         {
           declarations();
@@ -33,10 +46,31 @@ public class Parser {
         statement_list();
     }
 
+    private void addVar(Token tok)
+    {
+        Vars var = new Vars();
+
+        var.ID = tok.string;
+        var.line_declared = tok.lineNumber;
+        var.nesting_depth = depth;
+        //Add new variable to HashMap
+        variables.put(var.ID, var);
+	Vars temp = new Vars();
+	temp = variables.get(var.ID);
+        System.out.println("Current ID in hashmap is " + temp.ID);
+    }
+
     private void declarations() {
         mustbe(TK.VAR);
+        Vars temp = new Vars();
+        int i = 0;
         while( is(TK.ID) ) {
+            addVar(tok);
+            //temp = variables.get(i);
+            //System.out.print("Variable name: " + temp.ID);
+            //System.out.println("on line " + temp.line_declared); 
             scan();
+            i++;
         }
         mustbe(TK.RAV);
     }
@@ -49,7 +83,8 @@ public class Parser {
         }
         
     }
-
+    //Each case in statement will create a new block in stack, update nesting
+    //depth upon entering or exiting.
     private void statement() {
         
         if(is(TK.ID))
@@ -62,20 +97,29 @@ public class Parser {
         }
         else if(is(TK.IF))
         {
+            symTable.push(list);
             x_if();
+	    symTable.pop();
+	   
         }
         else if(is(TK.DO))
         {
+	    symTable.push(list);
             x_do();
-        }
+            symTable.pop();
+         }
         else
         {
+	    symTable.push(list);
             x_fa();
+            symTable.pop();
         }
     }
     
     private void assign() {
+        prev = tok;
         mustbe(TK.ID);
+        //Need to add check for variable declaration
         mustbe(TK.ASSIGN);
         expr();
     }
@@ -87,19 +131,23 @@ public class Parser {
     
     private void x_if() {
         mustbe(TK.IF);
+        list = new HashMap<string, Vars>();
         guarded_commands();
         mustbe(TK.FI);
     }
     
     private void x_do() {
         mustbe(TK.DO);
+        list = new HashMap<string, Vars>();
         guarded_commands();
         mustbe(TK.OD);
     }
     
     private void x_fa() {
         mustbe(TK.FA);
+        list = new HashMap<string, Vars>();
         mustbe(TK.ID);
+        //Need to add check for variable declaration
         mustbe(TK.ASSIGN);
         
         expr();
@@ -125,6 +173,7 @@ public class Parser {
         if(is(TK.EQ) || is(TK.LT) || is(TK.GT) || is(TK.NE) 
                 || is(TK.LE) || is(TK.GE)) 
         {
+            
             scan();
             simple();
         }
@@ -160,6 +209,8 @@ public class Parser {
         }
         else if(is(TK.ID))
         {
+            //Do a variable check here on symbol table will be "used" here
+            prev = tok;
             mustbe(TK.ID);
         }
         else if(is(TK.NUM))
