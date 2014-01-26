@@ -1,5 +1,5 @@
 /* *** This file is given as part of the programming assignment. *** */
-//Nelson Johansen
+//Caroline Chan, Tiffany Chan, Julien Hoachuck, Nelson Johansen
 import java.util.*;
 
 public class Parser {
