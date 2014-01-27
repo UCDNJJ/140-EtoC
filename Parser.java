@@ -10,18 +10,6 @@ public class Parser {
     private void scan() {
         tok = scanner.scan();
     }
-    
-    //Will hold variables and info of each block in symbol table.
-    //private Vector<Vars> variables = new Vector<Vars>();
-    HashMap<String, Vars> variables = new HashMap<String, Vars>();
-    //Symbol table data structure
-    Stack<Vars> symTable = new Stack<Vars>();
-    //Variable to keep track of nesting depth
-    private int depth;
-    //data structure for holding each block data
-    HashMap<String,Vars> list;
-    //variable to hold previously scanned ID
-    private Token prev;
 
     private Scan scanner;
     Parser(Scan scanner) {
@@ -31,47 +19,155 @@ public class Parser {
         if( tok.kind != TK.EOF )
             parse_error("junk after logical end of program");
     }
-
+    //Symbol Table data structure
+    HashMap<String,Stack<Vars>> symTable = new HashMap<String,Stack<Vars>>();
+    //Holds data about which variables were declared at each depth.
+    HashMap<Integer,HashMap<String,Token>> currentDepth = new HashMap<Integer,HashMap<String,Token>>();
+    
+    //depth variable
+    int depth;
+  
+    Token currVar;
+    
     private void program() {
         block();
     }
 
-    private void block() { 
-        list = new HashMap<String,Vars>();
+    private void block() {       
         if(is(TK.VAR))
         {
-          declarations();
+            declarations();
+        }
+        else
+        {
+            //To avoid nullPointerException if depth >= 1 and no variables were declared on depth x
+            currentDepth.put(depth, null);
+        }
+
+
+        statement_list();
+        removeSymbols();
+    }
+    
+    private void updateSymbols() {
+        //create a new class for the current declaration of the variable
+        Vars var = new Vars();
+        //stack to hold variables
+        Stack<Vars> stack = new Stack<Vars>();
+        
+        if(!(symTable.containsKey(tok.string)))
+        {                
+            var.line_declared = tok.lineNumber;
+            var.nesting_depth = depth; 
+            
+            stack.push(var);
+            symTable.put(tok.string, stack);               
+        }
+        else //symTable contains the key and its stack already!!!
+        {
+            stack = symTable.get(tok.string);
+                
+            var.line_declared = tok.lineNumber;
+            var.nesting_depth = depth;
+                
+            stack.push(var);
+            symTable.put(tok.string, stack);
+        }
+    }
+    
+    private void removeSymbols() {
+        //stack to hold variables
+        Stack<Vars> stack = new Stack<Vars>();
+        //holds the key values to be poped for current depth
+        HashMap<String,Token> temp = new HashMap<String,Token>();
+        
+        temp = currentDepth.get(depth);
+        
+        if(temp == null)
+            return;
+        
+        for(String key: temp.keySet())
+        {
+            stack = symTable.get(key);
+            stack.pop();
+            
+            if(stack.isEmpty())
+                symTable.remove(key);
+            else
+                symTable.put(key, stack);
+        }        
+    }
+    
+    private void variableAssigned() {
+        //create a new class for the current declaration of the variable
+        Vars var = new Vars();
+        //stack to hold variables
+        Stack<Vars> stack = new Stack<Vars>();
+
+        if(symTable.containsKey(tok.string))
+        {
+            stack = symTable.get(tok.string);
+            var = stack.pop();
+            
+            var.assigned.add(tok.lineNumber);
+            
+            stack.push(var);
+            symTable.put(tok.string, stack);
+        }
+        else
+        {
+            System.out.println("undeclared variable " + tok.string +" on line " + tok.lineNumber);
+            System.exit(1);
+        }
+    }
+    
+    private void variableUsed(Token t) {
+        //create a new class for the current declaration of the variable
+        Vars var = new Vars();
+        //stack to hold variables
+        Stack<Vars> stack = new Stack<Vars>();
+        
+        if(symTable.containsKey(t.string))
+        {
+            stack = symTable.get(t.string);
+            var = stack.pop();
+            
+            var.used.add(t.lineNumber);
+            
+            stack.push(var);
+            symTable.put(t.string, stack);
+        }
+        else
+        {
+            System.out.println("undeclared variable " + t.string +" on line " + t.lineNumber);
+            System.exit(1);
         }
         
-        statement_list();
-    }
-
-    private void addVar(Token tok)
-    {
-        Vars var = new Vars();
-
-        var.ID = tok.string;
-        var.line_declared = tok.lineNumber;
-        var.nesting_depth = depth;
-        //Add new variable to HashMap
-        variables.put(var.ID, var);
-	Vars temp = new Vars();
-	temp = variables.get(var.ID);
-        System.out.println("Current ID in hashmap is " + temp.ID);
     }
 
     private void declarations() {
         mustbe(TK.VAR);
-        Vars temp = new Vars();
-        int i = 0;
+        
+        //redeclartion checking structure and current block variables to pop before leaving scope
+        HashMap<String,Token> sentinel = new HashMap<String,Token>();
+        
         while( is(TK.ID) ) {
-            addVar(tok);
-            //temp = variables.get(i);
-            //System.out.print("Variable name: " + temp.ID);
-            //System.out.println("on line " + temp.line_declared); 
+            if(!(sentinel.containsKey(tok.string)))
+            {
+                sentinel.put(tok.string, tok);
+                updateSymbols();
+            }
+            else
+            {
+                System.out.println("variable " + tok.string + " is redeclared on line " + tok.lineNumber);
+                updateSymbols();//even though symbol is redeclared it is still used
+                                //within current scope.
+            }
+            
             scan();
-            i++;
+            
         }
+        currentDepth.put(depth, sentinel);
         mustbe(TK.RAV);
     }
     
@@ -83,10 +179,12 @@ public class Parser {
         }
         
     }
+
     private void statement() {
         
         if(is(TK.ID))
         {
+            variableAssigned();
             assign();
         }
         else if(is(TK.PRINT))
@@ -95,29 +193,27 @@ public class Parser {
         }
         else if(is(TK.IF))
         {
-            symTable.push(list);
+            depth++;
             x_if();
-	    symTable.pop();
-	   
+            depth--;
         }
         else if(is(TK.DO))
         {
-	    symTable.push(list);
+            depth++;
             x_do();
-            symTable.pop();
-         }
+            depth--;
+        }
         else
         {
-	    symTable.push(list);
+            depth++;
             x_fa();
-            symTable.pop();
+            depth--;
         }
     }
     
     private void assign() {
-        prev = tok;
+        
         mustbe(TK.ID);
-        //Need to add check for variable declaration
         mustbe(TK.ASSIGN);
         expr();
     }
@@ -129,23 +225,20 @@ public class Parser {
     
     private void x_if() {
         mustbe(TK.IF);
-        list = new HashMap<string, Vars>();
         guarded_commands();
         mustbe(TK.FI);
     }
     
     private void x_do() {
         mustbe(TK.DO);
-        list = new HashMap<string, Vars>();
         guarded_commands();
         mustbe(TK.OD);
     }
     
     private void x_fa() {
         mustbe(TK.FA);
-        list = new HashMap<string, Vars>();
+        variableAssigned();
         mustbe(TK.ID);
-        //Need to add check for variable declaration
         mustbe(TK.ASSIGN);
         
         expr();
@@ -165,14 +258,20 @@ public class Parser {
         mustbe(TK.AF);
     }
     
-    private void expr() { //returns a new tok when complete, don't scan after
+    private void expr() {
         simple();
         
         if(is(TK.EQ) || is(TK.LT) || is(TK.GT) || is(TK.NE) 
                 || is(TK.LE) || is(TK.GE)) 
         {
+            if(is(TK.ID))
+                variableUsed(currVar);
             
             scan();
+            
+            if(is(TK.ID))
+                variableUsed(tok);
+            
             simple();
         }
     }
@@ -182,7 +281,14 @@ public class Parser {
 
         while(is(TK.PLUS) || is(TK.MINUS))
         {
+            if(is(TK.ID))
+                variableUsed(currVar);
+            
             scan();
+            
+            if(is(TK.ID))
+                variableUsed(tok);
+            
             term();
         }
     }
@@ -192,7 +298,14 @@ public class Parser {
 
         while(is(TK.TIMES) || is(TK.DIVIDE))
         {
+            if(is(TK.ID))
+                variableUsed(currVar);
+            
             scan();
+            
+            if(is(TK.ID))
+                variableUsed(tok);
+            
             factor();
         }
     }
@@ -207,8 +320,10 @@ public class Parser {
         }
         else if(is(TK.ID))
         {
-            //Do a variable check here on symbol table will be "used" here
-            prev = tok;
+            currVar = tok;
+            if(!(symTable.containsKey(tok.string)))
+                System.out.println("undeclared variable " + tok.string +" on line " + tok.lineNumber);
+            
             mustbe(TK.ID);
         }
         else if(is(TK.NUM))
