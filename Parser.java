@@ -25,6 +25,8 @@ public class Parser {
     HashMap<Integer,ArrayList<String>> currentDepth = new HashMap<Integer,ArrayList<String>>();
     //Data structure to preserve values for printing
     Queue<Vars> symTablePreserved = new LinkedList<Vars>();
+    //Global variable to allow printing iff program was valid
+    boolean invalid;
     
     //depth variable
     int depth;
@@ -33,7 +35,9 @@ public class Parser {
     
     private void program() {
         block();
-        printPreserved();
+        
+        if(invalid == false)
+            printPreserved();
     }
 
     private void block() {       
@@ -41,9 +45,8 @@ public class Parser {
         {
             declarations();
         }
-
-        statement_list();
-        //removes from symTable and preserves in queue
+        invalid = true;
+        statement_list();           
         removeSymbols();
     }
     
@@ -86,7 +89,7 @@ public class Parser {
         temp = currentDepth.get(depth);
         
         if(temp == null)
-            return; //nothing was declared at this depth
+            return; 
         
         for(String key: temp)
         {
@@ -274,7 +277,7 @@ public class Parser {
             else
             {
                 System.out.println("variable " + tok.string + " is redeclared on line " + tok.lineNumber);
-                updateSymbols();//even though symbol is redeclared it is still used
+                //updateSymbols();//even though symbol is redeclared it is still used
                                 //within current scope.
             }
             
@@ -289,6 +292,7 @@ public class Parser {
         
         while(is(TK.ID) || is(TK.PRINT) || is(TK.IF) || is(TK.DO) || is(TK.FA))
         {
+            invalid = false;
             statement();
         }
         
