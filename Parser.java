@@ -22,7 +22,9 @@ public class Parser {
     //Symbol Table data structure
     HashMap<String,Stack<Vars>> symTable = new HashMap<String,Stack<Vars>>();
     //Holds data about which variables were declared at each depth.
-    HashMap<Integer,HashMap<String,Token>> currentDepth = new HashMap<Integer,HashMap<String,Token>>();
+    HashMap<Integer,ArrayList<String>> currentDepth = new HashMap<Integer,ArrayList<String>>();
+    //Data structure to preserve values for printing
+    Queue<Vars> symTablePreserved = new LinkedList<Vars>();
     
     //depth variable
     int depth;
@@ -31,6 +33,7 @@ public class Parser {
     
     private void program() {
         block();
+        printPreserved();
     }
 
     private void block() {       
@@ -38,14 +41,9 @@ public class Parser {
         {
             declarations();
         }
-        else
-        {
-            //To avoid nullPointerException if depth >= 1 and no variables were declared on depth x
-            currentDepth.put(depth, null);
-        }
-
 
         statement_list();
+        //removes from symTable and preserves in queue
         removeSymbols();
     }
     
@@ -56,7 +54,8 @@ public class Parser {
         Stack<Vars> stack = new Stack<Vars>();
         
         if(!(symTable.containsKey(tok.string)))
-        {                
+        {     
+            var.ID = tok.string;
             var.line_declared = tok.lineNumber;
             var.nesting_depth = depth; 
             
@@ -66,7 +65,8 @@ public class Parser {
         else //symTable contains the key and its stack already!!!
         {
             stack = symTable.get(tok.string);
-                
+            
+            var.ID = tok.string;   
             var.line_declared = tok.lineNumber;
             var.nesting_depth = depth;
                 
@@ -79,23 +79,137 @@ public class Parser {
         //stack to hold variables
         Stack<Vars> stack = new Stack<Vars>();
         //holds the key values to be poped for current depth
-        HashMap<String,Token> temp = new HashMap<String,Token>();
+        ArrayList<String> temp = new ArrayList<String>();
+        
+        Vars var = new Vars();
         
         temp = currentDepth.get(depth);
         
         if(temp == null)
-            return;
+            return; //nothing was declared at this depth
         
-        for(String key: temp.keySet())
+        for(String key: temp)
         {
             stack = symTable.get(key);
-            stack.pop();
             
+            var = stack.pop();
+            //System.out.println("Removing " + key + " at line " + var.line_declared);
+            symTablePreserved.add(var);
+
             if(stack.isEmpty())
                 symTable.remove(key);
             else
                 symTable.put(key, stack);
         }        
+    }
+    
+    private void printPreserved() {
+        //Stack<Vars> stack = new Stack<Vars>();
+        Vars var = new Vars();
+        //Integer duplicate checking
+        int prev = -1;
+        int counter = 1;
+        int size = 0;
+        String current = null;
+        
+        while(!(symTablePreserved.isEmpty()))
+        {
+            size = 0;
+            var = symTablePreserved.remove();
+                
+            System.out.println(var.ID);
+            System.out.println("  declared on line " + var.line_declared + 
+                    " at nesting depth " + var.nesting_depth);
+            if(var.assigned.isEmpty())
+            {
+                System.out.println("  never assigned");
+            }
+            else
+            {
+                System.out.print("  assigned to on:");
+                for(Integer x : var.assigned)
+                {
+                    if(var.ID != current)
+                    {
+                        prev = -1;
+                        counter = 1;
+                        current = var.ID;
+                    }
+                    
+                    if(x == prev && size < (var.assigned.size()-1))
+                    {
+                         counter++;
+                    }
+                    else if(x != prev && counter == 1)
+                    {
+                         System.out.print(" " + x);  
+                    }
+                    else if(x != prev && counter > 1)
+                    {
+                         System.out.print("(" + counter + ")");
+                         System.out.print(" " + x);
+                         counter = 1;
+                    }
+                    else
+                    {
+                         counter++;
+                         System.out.print("(" + counter + ")");
+                    }
+               
+                     prev = x;
+                     size++;
+                 }
+                 System.out.println();
+            }
+            
+            if(var.used.isEmpty())
+            {
+                System.out.println("  never used");
+            }
+            else
+            {
+                System.out.print("  used on:");
+            
+                prev = -1;
+                counter = 1;
+                size = 0;
+                current = null;
+            
+                for(Integer y : var.used)
+                {
+                    if(var.ID != current)
+                    {
+                        prev = -1;
+                        counter = 1;
+                        current = var.ID;
+                    }
+               
+                    if(y == prev && size < (var.used.size()-1))
+                    {
+                         counter++;
+                    }
+                    else if(y != prev && counter == 1)
+                    {
+                         System.out.print(" " + y);  
+                    }
+                    else if(y != prev && counter > 1)
+                    {
+                         System.out.print("(" + counter + ")");
+                         System.out.print(" " + y);
+                         counter = 1;
+                    }
+                    else
+                    {
+                        counter++;
+                        System.out.print("(" + counter + ")");
+                    }
+               
+                     prev = y;
+                     size++;
+                 }
+                 System.out.println();
+            }
+        }      
     }
     
     private void variableAssigned() {
@@ -149,12 +263,12 @@ public class Parser {
         mustbe(TK.VAR);
         
         //redeclartion checking structure and current block variables to pop before leaving scope
-        HashMap<String,Token> sentinel = new HashMap<String,Token>();
+        ArrayList<String> sentinel = new ArrayList<String>();
         
         while( is(TK.ID) ) {
-            if(!(sentinel.containsKey(tok.string)))
+            if(!(sentinel.contains(tok.string)))
             {
-                sentinel.put(tok.string, tok);
+                sentinel.add(tok.string);
                 updateSymbols();
             }
             else
@@ -194,18 +308,21 @@ public class Parser {
         else if(is(TK.IF))
         {
             depth++;
+            currentDepth.put(depth, null);
             x_if();
             depth--;
         }
         else if(is(TK.DO))
         {
             depth++;
+            currentDepth.put(depth, null);
             x_do();
             depth--;
         }
         else
         {
             depth++;
+            currentDepth.put(depth, null);
             x_fa();
             depth--;
         }
@@ -264,14 +381,7 @@ public class Parser {
         if(is(TK.EQ) || is(TK.LT) || is(TK.GT) || is(TK.NE) 
                 || is(TK.LE) || is(TK.GE)) 
         {
-            if(is(TK.ID))
-                variableUsed(currVar);
-            
             scan();
-            
-            if(is(TK.ID))
-                variableUsed(tok);
-            
             simple();
         }
     }
@@ -281,14 +391,7 @@ public class Parser {
 
         while(is(TK.PLUS) || is(TK.MINUS))
         {
-            if(is(TK.ID))
-                variableUsed(currVar);
-            
             scan();
-            
-            if(is(TK.ID))
-                variableUsed(tok);
-            
             term();
         }
     }
@@ -298,14 +401,7 @@ public class Parser {
 
         while(is(TK.TIMES) || is(TK.DIVIDE))
         {
-            if(is(TK.ID))
-                variableUsed(currVar);
-            
             scan();
-            
-            if(is(TK.ID))
-                variableUsed(tok);
-            
             factor();
         }
     }
@@ -322,8 +418,11 @@ public class Parser {
         {
             currVar = tok;
             if(!(symTable.containsKey(tok.string)))
+            {
                 System.out.println("undeclared variable " + tok.string +" on line " + tok.lineNumber);
-            
+                System.exit(1);
+            }
+            variableUsed(tok);
             mustbe(TK.ID);
         }
         else if(is(TK.NUM))
