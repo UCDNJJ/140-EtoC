@@ -24,7 +24,7 @@ public class Parser {
     //Holds data about which variables were declared at each depth.
     HashMap<Integer,ArrayList<String>> currentDepth = new HashMap<Integer,ArrayList<String>>();
     //Data structure to preserve values for printing
-    Queue<Vars> symTablePreserved = new LinkedList<Vars>();
+    ArrayList<PrintingQueue> symTablePreserved = new ArrayList<PrintingQueue>();
     //Global variable to allow printing iff program was valid
     boolean invalid;
     
@@ -32,6 +32,18 @@ public class Parser {
     int depth;
   
     Token currVar;
+
+    public class mySort implements Comparator<PrintingQueue> {
+        @Override
+        public int compare(PrintingQueue pQ1, PrintingQueue pQ2)
+        {
+            if(pQ1.depth > pQ2.depth)
+                return 1;
+            else
+                return -1;
+        }
+
+    }
     
     private void program() {
         block();
@@ -83,6 +95,8 @@ public class Parser {
         Stack<Vars> stack = new Stack<Vars>();
         //holds the key values to be poped for current depth
         ArrayList<String> temp = new ArrayList<String>();
+
+        PrintingQueue pQ = new PrintingQueue();
         
         Vars var = new Vars();
         
@@ -96,29 +110,50 @@ public class Parser {
             stack = symTable.get(key);
             
             var = stack.pop();
+            pQ.depth = var.line_declared;
             //System.out.println("Removing " + key + " at line " + var.line_declared);
-            symTablePreserved.add(var);
+            pQ.pQueue.add(var);
 
             if(stack.isEmpty())
                 symTable.remove(key);
             else
                 symTable.put(key, stack);
-        }        
+        }    
+
+        /*while((!pQ.pQueue.isEmpty()))
+        {
+            var = pQ.pQueue.remove();
+            System.out.println("Variable is " + var.ID + " on line" + var.line_declared);
+        }*/
+
+        symTablePreserved.add(pQ);    
     }
     
     private void printPreserved() {
         //Stack<Vars> stack = new Stack<Vars>();
         Vars var = new Vars();
+
+        Queue<Vars> pQ = new LinkedList<Vars>();
+        PrintingQueue temp;
+        PrintingQueue tempI;
+        PrintingQueue tempJ;
+
         //Integer duplicate checking
         int prev = -1;
         int counter = 1;
         int size = 0;
         String current = null;
+
+        Collections.sort(symTablePreserved, new mySort());
+
+        for(PrintingQueue p : symTablePreserved)
+        {
+            pQ = p.pQueue;
         
-        while(!(symTablePreserved.isEmpty()))
+        while(!(pQ.isEmpty()))
         {
             size = 0;
-            var = symTablePreserved.remove();
+            var = pQ.remove();
                 
             System.out.println(var.ID);
             System.out.println("  declared on line " + var.line_declared + 
@@ -212,7 +247,8 @@ public class Parser {
                  }
                  System.out.println();
             }
-        }      
+        } 
+       }    
     }
     
     private void variableAssigned() {
