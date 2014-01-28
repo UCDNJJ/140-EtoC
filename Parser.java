@@ -22,27 +22,26 @@ public class Parser {
     //Symbol Table data structure
     HashMap<String,Stack<Vars>> symTable = new HashMap<String,Stack<Vars>>();
     //Holds data about which variables were declared at each depth.
-    HashMap<Integer,ArrayList<String>> currentDepth = new HashMap<Integer,ArrayList<String>>();
+    HashMap<Integer,ArrayList<String>> currentDepth 
+            = new HashMap<Integer,ArrayList<String>>();
     //Data structure to preserve values for printing
     ArrayList<PrintingQueue> symTablePreserved = new ArrayList<PrintingQueue>();
     //Global variable to allow printing iff program was valid
-    boolean invalid;
-    
+    boolean invalid; 
     //depth variable
     int depth;
-  
+    //keep track of previous variable for certian statements
     Token currVar;
 
     public class mySort implements Comparator<PrintingQueue> {
         @Override
         public int compare(PrintingQueue pQ1, PrintingQueue pQ2)
         {
-            if(pQ1.depth > pQ2.depth)
+            if(pQ1.depth >= pQ2.depth)
                 return 1;
             else
                 return -1;
         }
-
     }
     
     private void program() {
@@ -95,9 +94,9 @@ public class Parser {
         Stack<Vars> stack = new Stack<Vars>();
         //holds the key values to be poped for current depth
         ArrayList<String> temp = new ArrayList<String>();
-
+        //holds class being preserved currently
         PrintingQueue pQ = new PrintingQueue();
-        
+        //holds class being worked with
         Vars var = new Vars();
         
         temp = currentDepth.get(depth);
@@ -106,12 +105,11 @@ public class Parser {
             return; 
         
         for(String key: temp)
-        {
-            stack = symTable.get(key);
-            
+        {           
+            stack = symTable.get(key);           
             var = stack.pop();
+            
             pQ.depth = var.line_declared;
-            //System.out.println("Removing " + key + " at line " + var.line_declared);
             pQ.pQueue.add(var);
 
             if(stack.isEmpty())
@@ -120,25 +118,16 @@ public class Parser {
                 symTable.put(key, stack);
         }    
 
-        /*while((!pQ.pQueue.isEmpty()))
-        {
-            var = pQ.pQueue.remove();
-            System.out.println("Variable is " + var.ID + " on line" + var.line_declared);
-        }*/
-
         symTablePreserved.add(pQ);    
     }
     
     private void printPreserved() {
         //Stack<Vars> stack = new Stack<Vars>();
         Vars var = new Vars();
-
+        //Variable to hold queue being printed currently
         Queue<Vars> pQ = new LinkedList<Vars>();
-        PrintingQueue temp;
-        PrintingQueue tempI;
-        PrintingQueue tempJ;
 
-        //Integer duplicate checking
+        //Variables for printing out correct values in ()
         int prev = -1;
         int counter = 1;
         int size = 0;
@@ -150,105 +139,105 @@ public class Parser {
         {
             pQ = p.pQueue;
         
-        while(!(pQ.isEmpty()))
-        {
-            size = 0;
-            var = pQ.remove();
-                
-            System.out.println(var.ID);
-            System.out.println("  declared on line " + var.line_declared + 
-                    " at nesting depth " + var.nesting_depth);
-            if(var.assigned.isEmpty())
+            while(!(pQ.isEmpty()))
             {
-                System.out.println("  never assigned");
-            }
-            else
-            {
-                System.out.print("  assigned to on:");
-                for(Integer x : var.assigned)
-                {
-                    if(var.ID != current)
-                    {
-                        prev = -1;
-                        counter = 1;
-                        current = var.ID;
-                    }
-                    
-                    if(x == prev && size < (var.assigned.size()-1))
-                    {
-                         counter++;
-                    }
-                    else if(x != prev && counter == 1)
-                    {
-                         System.out.print(" " + x);  
-                    }
-                    else if(x != prev && counter > 1)
-                    {
-                         System.out.print("(" + counter + ")");
-                         System.out.print(" " + x);
-                         counter = 1;
-                    }
-                    else
-                    {
-                         counter++;
-                         System.out.print("(" + counter + ")");
-                    }
-               
-                     prev = x;
-                     size++;
-                 }
-                 System.out.println();
-            }
-            
-            if(var.used.isEmpty())
-            {
-                System.out.println("  never used");
-            }
-            else
-            {
-                System.out.print("  used on:");
-            
-                prev = -1;
-                counter = 1;
                 size = 0;
-                current = null;
-            
-                for(Integer y : var.used)
+                var = pQ.remove();
+                
+                System.err.println(var.ID);
+                System.err.println("  declared on line " + var.line_declared + 
+                    " at nesting depth " + var.nesting_depth);
+                if(var.assigned.isEmpty())
                 {
-                    if(var.ID != current)
+                    System.err.println("  never assigned");
+                }
+                else
+                {
+                    System.err.print("  assigned to on:");
+                    for(Integer x : var.assigned)
                     {
-                        prev = -1;
-                        counter = 1;
-                        current = var.ID;
-                    }
+                        if(var.ID != current)
+                        {
+                            prev = -1;
+                            counter = 1;
+                            current = var.ID;
+                        }
+                    
+                        if(x == prev && size < (var.assigned.size()-1))
+                        {
+                            counter++;
+                        }
+                        else if(x != prev && counter == 1)
+                        {
+                            System.err.print(" " + x);  
+                        }
+                        else if(x != prev && counter > 1)
+                        {
+                            System.err.print("(" + counter + ")");
+                            System.err.print(" " + x);
+                            counter = 1;
+                        }
+                        else
+                        {
+                            counter++;
+                            System.err.print("(" + counter + ")");
+                        }
                
-                    if(y == prev && size < (var.used.size()-1))
+                        prev = x;
+                        size++;
+                     }
+                    System.err.println();
+                }
+            
+                if(var.used.isEmpty())
+                {
+                    System.err.println("  never used");
+                }
+                else
+                {
+                    System.err.print("  used on:");
+            
+                    prev = -1;
+                    counter = 1;
+                    size = 0;
+                    current = null;
+            
+                    for(Integer y : var.used)
                     {
-                         counter++;
-                    }
-                    else if(y != prev && counter == 1)
-                    {
-                         System.out.print(" " + y);  
-                    }
-                    else if(y != prev && counter > 1)
-                    {
-                         System.out.print("(" + counter + ")");
-                         System.out.print(" " + y);
-                         counter = 1;
-                    }
-                    else
-                    {
-                        counter++;
-                        System.out.print("(" + counter + ")");
-                    }
+                        if(var.ID != current)
+                        {
+                            prev = -1;
+                            counter = 1;
+                            current = var.ID;
+                        }
                
-                     prev = y;
-                     size++;
-                 }
-                 System.out.println();
-            }
-        } 
-       }    
+                        if(y == prev && size < (var.used.size()-1))
+                        {
+                             counter++;
+                        }
+                        else if(y != prev && counter == 1)
+                        {
+                             System.err.print(" " + y);  
+                        }
+                        else if(y != prev && counter > 1)
+                        {
+                             System.err.print("(" + counter + ")");
+                             System.err.print(" " + y);
+                             counter = 1;
+                        }
+                        else
+                        {
+                            counter++;
+                            System.err.print("(" + counter + ")");
+                        }
+               
+                         prev = y;
+                         size++;
+                     }
+                     System.err.println();
+                }//end of print block
+            } //end of while
+        }//end of for  
     }
     
     private void variableAssigned() {
@@ -269,7 +258,8 @@ public class Parser {
         }
         else
         {
-            System.out.println("undeclared variable " + tok.string +" on line " + tok.lineNumber);
+            System.out.println("undeclared variable " + tok.string +" on line " 
+                    + tok.lineNumber);
             System.exit(1);
         }
     }
@@ -277,7 +267,7 @@ public class Parser {
     private void variableUsed(Token t) {
         //create a new class for the current declaration of the variable
         Vars var = new Vars();
-        //stack to hold variables
+        //stack to hold symTable stack
         Stack<Vars> stack = new Stack<Vars>();
         
         if(symTable.containsKey(t.string))
@@ -292,19 +282,22 @@ public class Parser {
         }
         else
         {
-            System.out.println("undeclared variable " + t.string +" on line " + t.lineNumber);
+            System.out.println("undeclared variable " + t.string +" on line " 
+                    + t.lineNumber);
             System.exit(1);
         }
         
     }
-
+   
     private void declarations() {
         mustbe(TK.VAR);
         
-        //redeclartion checking structure and current block variables to pop before leaving scope
+        //redeclartion checking structure and current block variables to pop 
+        //before leaving scope
         ArrayList<String> sentinel = new ArrayList<String>();
         
         while( is(TK.ID) ) {
+            //sentinel holds all variable IDs for current var rav statement.
             if(!(sentinel.contains(tok.string)))
             {
                 sentinel.add(tok.string);
@@ -312,9 +305,8 @@ public class Parser {
             }
             else
             {
-                System.out.println("variable " + tok.string + " is redeclared on line " + tok.lineNumber);
-                //updateSymbols();//even though symbol is redeclared it is still used
-                                //within current scope.
+                System.out.println("variable " + tok.string + 
+                        " is redeclared on line " + tok.lineNumber);
             }
             
             scan();
@@ -456,10 +448,12 @@ public class Parser {
         }
         else if(is(TK.ID))
         {
+            //hold and check current tok to see if declared
             currVar = tok;
             if(!(symTable.containsKey(tok.string)))
             {
-                System.out.println("undeclared variable " + tok.string +" on line " + tok.lineNumber);
+                System.out.println("undeclared variable " + tok.string +
+                        " on line " + tok.lineNumber);
                 System.exit(1);
             }
             variableUsed(tok);
