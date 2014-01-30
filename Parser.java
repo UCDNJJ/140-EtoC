@@ -14,11 +14,218 @@ public class Parser {
     private Scan scanner;
     Parser(Scan scanner) {
         this.scanner = scanner;
+        System.out.println("#include <stdio.h>");
+        System.out.println("#include <math.h>");
+        System.out.println("main() {");
         scan();
         program();
         if( tok.kind != TK.EOF )
             parse_error("junk after logical end of program");
     }
+    //required for translator
+    Token prev;
+    //variables used to handle special cases in C syntax
+    int inVar = 0;
+    int inDo = 0;
+    int inST = 0;
+    int inFA = 0;
+    int inPrint = 0;
+    int inRoot = 0;
+    int saveFa1 = 0;
+    int saveFa2 = 0;
+    int sqrCount = 0;
+    int rootCount = 0;
+    //variables used to hold epxresions for later use in translation
+    Token itr;
+    String exprRoot = new String();
+    String expr1 = new String();
+    String expr2 = new String();
+    
+    //translates E code to C code based on Token.kind
+    public void translate() 
+    {
+        if((inRoot == 1) && (tok.kind != TK.ROOT))
+        {
+            if(is(TK.ID))
+            {
+                exprRoot = exprRoot + "x_" + tok.string;
+            }
+            else
+            {
+                exprRoot = exprRoot + tok.string;
+            }
+            return;
+        }
+        
+        if(saveFa1 == 1)
+        {
+            if(is(TK.ID))
+            {
+                expr1 = expr1 + " x_" + tok.string;
+            }
+            else
+            {
+                expr1 = expr1 + tok.string;
+            }
+        }
+        
+        if(saveFa2 == 1)
+        {
+            if(is(TK.ID))
+            {
+                expr2 = expr2 + " x_" + tok.string;
+            }
+            else
+            {
+                expr2 = expr2 + tok.string;
+            }
+        }
+        
+        if(inRoot == 1)
+        {
+            if(is(TK.ID))
+            {
+                exprRoot = exprRoot + "x_" + tok.string;
+            }
+            else
+            {
+                exprRoot = exprRoot + tok.string;
+            }
+        }
+        
+        if(tok.kind == TK.VAR)
+        {
+            inVar = 1;
+        }
+        else if(tok.kind ==  TK.ID)
+        {
+            if(inVar == 1)
+            {
+                System.out.println("int x_" + tok.string + " = -12345;");
+            }
+            else
+            {
+                System.out.print("x_" + tok.string + " ");
+            }
+        }
+        else if(tok.kind == TK.RAV)
+        {
+            inVar = 0;
+        }
+        else if(is(TK.ASSIGN))
+        {
+            System.out.print(" = ");
+        }
+        else if(is(TK.NE))
+        {
+            System.out.print(" != ");
+        }
+        else if(is(TK.EQ))
+        {
+            System.out.print(" == ");
+        }
+        else if(is(TK.LE) || is(TK.GE) || is(TK.GT) || is(TK.LT)
+                || is(TK.DIVIDE) || is(TK.TIMES) ||
+                is(TK.MINUS) || is(TK.PLUS) || is(TK.RPAREN) || is(TK.LPAREN))
+        {
+            System.out.print(" " + tok.string + " ");
+        }
+        else if(tok.kind == TK.PRINT)
+        {
+            System.out.print("printf(" + "\"%d\\n\", ");
+        }
+        else if(tok.kind == TK.NUM)
+        {
+            System.out.print(tok.string);
+        }
+        else if(tok.kind == TK.IF)
+        {
+            System.out.print("if( ");
+        }
+        else if(tok.kind == TK.FI)
+        {
+            if(inDo == 1)
+            {
+                System.out.println("continue;");
+            }
+            
+            System.out.println("}//end of if block");
+        }
+        else if(tok.kind == TK.DO)
+        {
+            inDo = 1;
+            System.out.println("while(1) {");
+            System.out.println("if(" );
+        }
+        else if(tok.kind == TK.OD)
+        {
+            inDo = 0;
+            System.out.println("continue;");
+            System.out.println("}//do with last gaurd for do block");
+            System.out.println("break;");
+            System.out.println("}//end of do while loop");
+        }
+        else if(tok.kind == TK.FA)
+        {
+            inFA = 1;
+            System.out.println("for(");
+        }
+        else if(tok.kind == TK.TO)
+        {
+            System.out.println("; x_" + itr.string + " <= " );
+        }
+        else if(tok.kind == TK.ST)
+        {
+            System.out.println("if(");
+        }
+        else if(tok.kind == TK.AF)
+        {
+            if(inST == 1)
+            {
+                System.out.println("} //end of conditional");
+            }
+            
+            inFA = 0;
+            inST = 0;
+            System.out.println("}//end for loop");
+        }
+        else if(tok.kind == TK.ARROW)
+        {
+            if(prev.kind == TK.ELSE)
+            {
+                System.out.println("{");   
+            }
+            else if(inFA == 0)
+            {
+                System.out.println(") {");
+            }
+            else
+            {
+                return;
+            }
+        }
+        else if(tok.kind == TK.BOX)
+        {
+            if(inDo == 1)
+            {
+                System.out.println("continue;");
+            }
+            System.out.println("}//end of if statement");
+            System.out.print("else if( ");
+        }
+        else if(tok.kind == TK.ELSE)
+        {
+            System.out.print("}");//close block above else
+            System.out.print(" else");
+        }
+        else
+        {
+        }
+        
+      prev = tok;
+    }
+    
+    
     //Symbol Table data structure
     HashMap<String,Stack<Vars>> symTable = new HashMap<String,Stack<Vars>>();
     //Holds data about which variables were declared at each depth.
@@ -46,12 +253,14 @@ public class Parser {
     
     private void program() {
         block();
-        
+
+        System.out.print("}//end of program");
+
         if(invalid == false)
             printPreserved();
     }
 
-    private void block() {       
+    private void block() {
         if(is(TK.VAR))
         {
             declarations();
@@ -60,7 +269,8 @@ public class Parser {
         statement_list();           
         removeSymbols();
     }
-    
+
+    //updates or adds symbol to symbol table data structure    
     private void updateSymbols() {
         //create a new class for the current declaration of the variable
         Vars var = new Vars();
@@ -89,6 +299,7 @@ public class Parser {
         }
     }
     
+    //when variables go out of scope remove them from symbol table
     private void removeSymbols() {
         //stack to hold variables
         Stack<Vars> stack = new Stack<Vars>();
@@ -121,8 +332,9 @@ public class Parser {
         symTablePreserved.add(pQ);    
     }
     
+    //prints out the variables on symbol table in declared order
     private void printPreserved() {
-        //Stack<Vars> stack = new Stack<Vars>();
+        //used to hold Objects coming off stack
         Vars var = new Vars();
         //Variable to hold queue being printed currently
         Queue<Vars> pQ = new LinkedList<Vars>();
@@ -240,6 +452,7 @@ public class Parser {
         }//end of for  
     }
     
+    //when a variable is assigned update its information on symbol table
     private void variableAssigned() {
         //create a new class for the current declaration of the variable
         Vars var = new Vars();
@@ -258,12 +471,13 @@ public class Parser {
         }
         else
         {
-            System.out.println("undeclared variable " + tok.string +" on line " 
+            System.err.println("undeclared variable " + tok.string +" on line " 
                     + tok.lineNumber);
             System.exit(1);
         }
     }
     
+    //when a variable is used update information on symbol table
     private void variableUsed(Token t) {
         //create a new class for the current declaration of the variable
         Vars var = new Vars();
@@ -282,7 +496,7 @@ public class Parser {
         }
         else
         {
-            System.out.println("undeclared variable " + t.string +" on line " 
+            System.err.println("undeclared variable " + t.string +" on line " 
                     + t.lineNumber);
             System.exit(1);
         }
@@ -290,6 +504,7 @@ public class Parser {
     }
    
     private void declarations() {
+        translate(); //gen code for start of variable declartion
         mustbe(TK.VAR);
         
         //redeclartion checking structure and current block variables to pop 
@@ -302,17 +517,18 @@ public class Parser {
             {
                 sentinel.add(tok.string);
                 updateSymbols();
+                translate(); //gen code for each ID
             }
             else
             {
-                System.out.println("variable " + tok.string + 
+                System.err.println("variable " + tok.string + 
                         " is redeclared on line " + tok.lineNumber);
             }
-            
             scan();
             
         }
         currentDepth.put(depth, sentinel);
+        translate(); //gen code for end of variable declartion
         mustbe(TK.RAV);
     }
     
@@ -327,7 +543,6 @@ public class Parser {
     }
 
     private void statement() {
-        
         if(is(TK.ID))
         {
             variableAssigned();
@@ -361,49 +576,79 @@ public class Parser {
     }
     
     private void assign() {
-        
+        translate(); //gen code for ID
         mustbe(TK.ID);
+        translate(); //gen code for ASSIGN
         mustbe(TK.ASSIGN);
         expr();
+        System.out.println(";"); //create code for end of assignment statement
     }
     
     private void print() {
+        inPrint = 1;
+        translate(); //gen code is printf("%d\n", 
         mustbe(TK.PRINT);
         expr();
+        System.out.println(");"); //creat code for end of print statement
+        inPrint = 0;
     }
     
     private void x_if() {
+        translate(); //gen code for if
         mustbe(TK.IF);
         guarded_commands();
+        translate(); //gen code for fi
         mustbe(TK.FI);
     }
     
     private void x_do() {
+        translate(); //gen code for do
         mustbe(TK.DO);
         guarded_commands();
+        translate(); //gen code for od
         mustbe(TK.OD);
     }
     
     private void x_fa() {
+        expr1 = "";
+        expr2 = "";
+        
+        translate(); //gen code for fa
         mustbe(TK.FA);
         variableAssigned();
+        translate(); //gen code for ID of fa
+        itr = tok; // hold onto the iterator variable to generator for loop
         mustbe(TK.ID);
+        translate(); //gen ASSIGN
         mustbe(TK.ASSIGN);
         
+        saveFa1 = 1;
         expr();
+        saveFa1 = 0;
         
+        translate(); //gen TO
         mustbe(TK.TO);
         
+        saveFa2 = 1;
         expr();
-
+        saveFa2 = 0;
+        
+        System.out.println("; " + "x_" +itr.string + "++" +") {");
+        System.out.println("if(" + expr1 + " > " + expr2 + ") {");
+        System.out.println("  break;");
+        System.out.println("}");
+        
         if(is(TK.ST))
         {
+            inST = 1;
+            translate();// gen ST
             mustbe(TK.ST);
             expr();
+            System.out.println(") {");
         }
         
         commands();
-
+        translate(); // gen AF
         mustbe(TK.AF);
     }
     
@@ -413,6 +658,7 @@ public class Parser {
         if(is(TK.EQ) || is(TK.LT) || is(TK.GT) || is(TK.NE) 
                 || is(TK.LE) || is(TK.GE)) 
         {
+            translate(); //gen code for operators
             scan();
             simple();
         }
@@ -423,6 +669,7 @@ public class Parser {
 
         while(is(TK.PLUS) || is(TK.MINUS))
         {
+            translate(); //gen code for operators
             scan();
             term();
         }
@@ -433,17 +680,19 @@ public class Parser {
 
         while(is(TK.TIMES) || is(TK.DIVIDE))
         {
+            translate(); //gen code for operators
             scan();
             factor();
         }
     }
     
     private void factor() {
-        
         if(is(TK.LPAREN))
         {
+            translate(); //gen code for (
             mustbe(TK.LPAREN);
             expr();
+            translate(); //gen code for )
             mustbe(TK.RPAREN);
         }
         else if(is(TK.ID))
@@ -452,16 +701,59 @@ public class Parser {
             currVar = tok;
             if(!(symTable.containsKey(tok.string)))
             {
-                System.out.println("undeclared variable " + tok.string +
+                System.err.println("undeclared variable " + tok.string +
                         " on line " + tok.lineNumber);
                 System.exit(1);
             }
             variableUsed(tok);
+            
+            translate(); //gen code for ID
             mustbe(TK.ID);
         }
         else if(is(TK.NUM))
         {
+            translate(); //gen code for NUM
             mustbe(TK.NUM);
+        }
+        else if(is(TK.SQR))
+        {
+            if(inRoot == 1)
+            {
+                exprRoot = exprRoot + "(int) pow(";
+            }
+            else
+            {
+                System.out.print("(int)");
+                System.out.print("pow( ");
+            }
+            mustbe(TK.SQR);
+            sqrCount++;
+            expr();
+            sqrCount--;
+            if(inRoot == 1)
+            {
+                exprRoot = exprRoot + ",2)";
+            }else{
+            System.out.print(",2)");
+            
+            }
+        }
+        else if(is(TK.ROOT))
+        {
+            exprRoot = "";
+            inRoot = 1;
+            System.out.print("(int)");
+            System.out.print("sqrt( ");
+            mustbe(TK.ROOT);
+                   
+            expr();
+            
+            if((inRoot == 1) && (prev.kind != TK.ROOT))
+            {
+                System.out.print(exprRoot + " < 0 ? 0 : " + exprRoot);
+                inRoot = 0;
+            }
+            System.out.print(" )");
         }
         else
         {
@@ -474,12 +766,14 @@ public class Parser {
         
         while(is(TK.BOX))
         {
+            translate(); //gen else if code for BOX
             mustbe(TK.BOX);
             guarded_command();
         }
         
         if(is(TK.ELSE))
         {
+            translate(); //gen code for else
             mustbe(TK.ELSE);
             commands();
         }             
@@ -492,6 +786,7 @@ public class Parser {
     }
     
     private void commands() {
+        translate(); //gen code for ARROW
         mustbe(TK.ARROW);
         block();
     }
